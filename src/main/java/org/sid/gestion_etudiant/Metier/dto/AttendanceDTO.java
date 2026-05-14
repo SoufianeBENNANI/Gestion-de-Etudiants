@@ -1,0 +1,23 @@
+package org.sid.gestion_etudiant.Metier.dto;
+
+import lombok.Data;
+import org.sid.gestion_etudiant.Metier.enums.AttendanceStatus;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Data
+public class AttendanceDTO {
+
+    private Long id;
+
+    private LocalDate date;
+
+    private AttendanceStatus status;
+
+    private Long studentId;
+
+    private boolean archived;
+
+    private LocalDateTime archivedAt;
+}
