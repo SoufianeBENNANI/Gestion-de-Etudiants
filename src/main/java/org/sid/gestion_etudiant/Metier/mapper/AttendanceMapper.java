@@ -16,6 +16,9 @@ public class AttendanceMapper {
 
         if (attendance.getStudent() != null) {
             attendanceDTO.setStudentId(attendance.getStudent().getId());
+            attendanceDTO.setStudentNom(attendance.getStudent().getNom());
+            attendanceDTO.setStudentPrenom(attendance.getStudent().getPrenom());
+            attendanceDTO.setStudentEmail(attendance.getStudent().getEmail());
         }
 
         return attendanceDTO;

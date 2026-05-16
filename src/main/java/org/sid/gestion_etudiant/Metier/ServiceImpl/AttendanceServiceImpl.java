@@ -1,17 +1,13 @@
-package org.sid.gestion_etudiant.Metier.ServiceImpl;
+package org.sid.gestion_etudiant.Metier.Service;
 
 import lombok.AllArgsConstructor;
 import org.sid.gestion_etudiant.Metier.Entity.Attendance;
 import org.sid.gestion_etudiant.Metier.Entity.Student;
 import org.sid.gestion_etudiant.Metier.Repository.AttendanceRepo;
 import org.sid.gestion_etudiant.Metier.Repository.StudentRepo;
-import org.sid.gestion_etudiant.Metier.Service.AttendanceService;
 import org.sid.gestion_etudiant.Metier.dto.AttendanceDTO;
-import org.sid.gestion_etudiant.Metier.exception.AttendanceNotFoundException;
-import org.sid.gestion_etudiant.Metier.exception.StudentNotFoundException;
 import org.sid.gestion_etudiant.Metier.mapper.AttendanceMapper;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,15 +22,15 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public AttendanceDTO addAttendance(AttendanceDTO attendanceDTO) {
         Student student = studentRepo.findById(attendanceDTO.getStudentId())
-                .orElseThrow(() -> new StudentNotFoundException("Student not found"));
+                .orElseThrow(() -> new RuntimeException("Student not found"));
 
         Attendance attendance = AttendanceMapper.toEntity(attendanceDTO);
-
         attendance.setStudent(student);
         attendance.setArchived(false);
-        attendance.setArchivedAt(null);
 
-        return AttendanceMapper.toDto(attendanceRepo.save(attendance));
+        Attendance savedAttendance = attendanceRepo.save(attendance);
+
+        return AttendanceMapper.toDto(savedAttendance);
     }
 
     @Override
@@ -55,12 +51,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     public AttendanceDTO getAttendanceById(Long id) {
-        if (id == null) {
-            throw new IllegalArgumentException("Le champ ID est obligatoire");
-        }
-
         Attendance attendance = attendanceRepo.findById(id)
-                .orElseThrow(() -> new AttendanceNotFoundException("Attendance non trouvée avec id : " + id));
+                .orElseThrow(() -> new RuntimeException("Attendance not found"));
 
         return AttendanceMapper.toDto(attendance);
     }
@@ -68,64 +60,56 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public AttendanceDTO updateAttendance(Long id, AttendanceDTO attendanceDTO) {
         Attendance attendance = attendanceRepo.findById(id)
-                .orElseThrow(() -> new AttendanceNotFoundException("Attendance non trouvée avec id : " + id));
-
-        if (attendance.isArchived()) {
-            throw new RuntimeException("Impossible de modifier une attendance archivée. Restaurer d'abord.");
-        }
+                .orElseThrow(() -> new RuntimeException("Attendance not found"));
 
         attendance.setDate(attendanceDTO.getDate());
         attendance.setStatus(attendanceDTO.getStatus());
 
         if (attendanceDTO.getStudentId() != null) {
             Student student = studentRepo.findById(attendanceDTO.getStudentId())
-                    .orElseThrow(() -> new StudentNotFoundException("Student not found"));
+                    .orElseThrow(() -> new RuntimeException("Student not found"));
+
             attendance.setStudent(student);
         }
 
-        return AttendanceMapper.toDto(attendanceRepo.save(attendance));
+        Attendance updatedAttendance = attendanceRepo.save(attendance);
+
+        return AttendanceMapper.toDto(updatedAttendance);
     }
 
     @Override
     public String deleteAttendance(Long id) {
         Attendance attendance = attendanceRepo.findById(id)
-                .orElseThrow(() -> new AttendanceNotFoundException("Attendance non trouvée avec id : " + id));
-
-        if (attendance.isArchived()) {
-            return "Attendance déjà archivée avec id : " + id;
-        }
+                .orElseThrow(() -> new RuntimeException("Attendance not found"));
 
         attendance.setArchived(true);
         attendance.setArchivedAt(LocalDateTime.now());
 
         attendanceRepo.save(attendance);
 
-        return "Attendance archivée avec succès. Elle sera supprimée définitivement après 7 jours.";
+        return "Attendance archived successfully";
     }
 
     @Override
     public AttendanceDTO restoreAttendance(Long id) {
         Attendance attendance = attendanceRepo.findById(id)
-                .orElseThrow(() -> new AttendanceNotFoundException("Attendance non trouvée avec id : " + id));
-
-        if (!attendance.isArchived()) {
-            throw new RuntimeException("Cette attendance n'est pas archivée.");
-        }
+                .orElseThrow(() -> new RuntimeException("Attendance not found"));
 
         attendance.setArchived(false);
         attendance.setArchivedAt(null);
 
-        return AttendanceMapper.toDto(attendanceRepo.save(attendance));
+        Attendance restoredAttendance = attendanceRepo.save(attendance);
+
+        return AttendanceMapper.toDto(restoredAttendance);
     }
 
     @Override
-    @Transactional
     public void deleteOldArchivedAttendances() {
-        LocalDateTime limitDate = LocalDateTime.now().minusDays(7);
+        LocalDateTime limitDate = LocalDateTime.now().minusDays(30);
 
-        List<Attendance> oldArchivedAttendances =
+        List<Attendance> oldAttendances =
                 attendanceRepo.findByArchivedTrueAndArchivedAtBefore(limitDate);
 
-        attendanceRepo.deleteAll(oldArchivedAttendances);
+        attendanceRepo.deleteAll(oldAttendances);
     }
 }

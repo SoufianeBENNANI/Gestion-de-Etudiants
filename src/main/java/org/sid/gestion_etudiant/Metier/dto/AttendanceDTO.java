@@ -17,6 +17,12 @@ public class AttendanceDTO {
 
     private Long studentId;
 
+    private String studentNom;
+
+    private String studentPrenom;
+
+    private String studentEmail;
+
     private boolean archived;
 
     private LocalDateTime archivedAt;
