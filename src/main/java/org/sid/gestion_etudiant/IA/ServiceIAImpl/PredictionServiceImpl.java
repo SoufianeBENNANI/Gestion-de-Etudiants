@@ -1,10 +1,10 @@
 package org.sid.gestion_etudiant.IA.ServiceIAImpl;
 
 import lombok.AllArgsConstructor;
+import org.sid.gestion_etudiant.IA.DTO.StudentPerformanceDTO;
 import org.sid.gestion_etudiant.IA.Entity.StudentIAPrediction;
 import org.sid.gestion_etudiant.IA.Repository.StudentIAPredictionRepo;
 import org.sid.gestion_etudiant.IA.Service.PredictionService;
-import org.sid.gestion_etudiant.IA.DTO.StudentPerformanceDTO;
 import org.sid.gestion_etudiant.Metier.Entity.Student;
 import org.sid.gestion_etudiant.Metier.Repository.StudentRepo;
 import org.springframework.stereotype.Service;
@@ -20,8 +20,31 @@ public class PredictionServiceImpl implements PredictionService {
     private final StudentRepo studentRepo;
 
     @Override
-    public List<StudentIAPrediction> getAll() {
-        return predictionRepo.findAll();
+    public List<StudentPerformanceDTO> getAll() {
+        List<StudentIAPrediction> predictions = predictionRepo.findAll();
+
+        return predictions.stream()
+                .map(prediction -> {
+                    Student student = prediction.getStudent();
+
+                    return new StudentPerformanceDTO(
+                            prediction.getId(),
+                            student != null ? student.getId() : null,
+                            student != null ? student.getNom() : null,
+                            student != null ? student.getPrenom() : null,
+                            student != null ? student.getEmail() : null,
+                            prediction.getMoyenne(),
+                            prediction.getAbsences(),
+                            prediction.getPrediction(),
+                            prediction.getScoreRisque(),
+                            prediction.getNiveau(),
+                            prediction.getRecommandation(),
+                            prediction.getDate(),
+                            prediction.getStatus(),
+                            true
+                    );
+                })
+                .toList();
     }
 
     @Override

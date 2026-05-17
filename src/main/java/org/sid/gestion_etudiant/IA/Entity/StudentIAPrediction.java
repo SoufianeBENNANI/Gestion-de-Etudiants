@@ -35,6 +35,5 @@ public class StudentIAPrediction {
     private String modelVersion;
 
     @ManyToOne
-    @JsonIgnore
     private Student student;
 }

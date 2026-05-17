@@ -1,9 +1,9 @@
 package org.sid.gestion_etudiant.IA.ControllerIA;
 
 import lombok.AllArgsConstructor;
+import org.sid.gestion_etudiant.IA.DTO.StudentPerformanceDTO;
 import org.sid.gestion_etudiant.IA.Entity.StudentIAPrediction;
 import org.sid.gestion_etudiant.IA.Service.PredictionService;
-import org.sid.gestion_etudiant.IA.DTO.StudentPerformanceDTO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +19,7 @@ public class PredictionController {
     // ADMIN + TEACHER
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @GetMapping("/All")
-    public List<StudentIAPrediction> getAll() {
+    public List<StudentPerformanceDTO> getAll() {
         return predictionService.getAll();
     }
 
