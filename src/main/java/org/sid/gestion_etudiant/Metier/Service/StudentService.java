@@ -6,19 +6,21 @@ import java.util.List;
 
 public interface StudentService {
 
-    StudentDTO addStudent(StudentDTO studentDTO);
+    StudentDTO addStudent(StudentDTO dto);
 
     List<StudentDTO> getAllStudents();
 
-    List<StudentDTO> getArchivedStudents();
-
     List<StudentDTO> getStudentsByNom(String nom);
 
-    StudentDTO updateStudent(Long id, StudentDTO studentDTO);
+    StudentDTO updateStudent(Long id, StudentDTO dto);
 
     String deleteStudent(Long id);
+
+    List<StudentDTO> getArchivedStudents();
 
     StudentDTO restoreStudent(Long id);
 
     void deleteOldArchivedStudents();
+
+    byte[] generateStudentsPdf();
 }

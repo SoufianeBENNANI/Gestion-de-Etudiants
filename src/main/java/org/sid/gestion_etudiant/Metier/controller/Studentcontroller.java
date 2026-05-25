@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 
@@ -66,4 +68,14 @@ public class Studentcontroller {
         return ResponseEntity.ok(restoredStudent);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','MANAGER')")
+    @GetMapping("/DownloadPdf")
+    public ResponseEntity<byte[]> downloadStudentsPdf() {
+        byte[] pdf = studentService.generateStudentsPdf();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=liste_etudiants.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
 }
