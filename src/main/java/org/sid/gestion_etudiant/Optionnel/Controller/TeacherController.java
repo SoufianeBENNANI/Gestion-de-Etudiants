@@ -12,9 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * @author Soufiane
- **/
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/teachers")
