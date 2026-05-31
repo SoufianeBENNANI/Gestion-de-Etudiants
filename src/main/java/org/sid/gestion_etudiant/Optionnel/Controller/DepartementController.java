@@ -1,26 +1,66 @@
 package org.sid.gestion_etudiant.Optionnel.Controller;
 
-import org.sid.gestion_etudiant.Optionnel.Entity.Departement;
-import org.sid.gestion_etudiant.Optionnel.Repository.DepartementRepo;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
+import org.sid.gestion_etudiant.Optionnel.DTO.DepartementDTO;
+import org.sid.gestion_etudiant.Optionnel.Service.DepartementService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * @author Soufiane
+ **/
 @RestController
 @RequestMapping("/api/departments")
+@AllArgsConstructor
+@CrossOrigin("*")
 public class DepartementController {
 
-    @Autowired
-    private DepartementRepo departementRepo;
+    private final DepartementService departementService;
 
-    @PostMapping
-    public Departement create(@RequestBody Departement departement) {
-        return departementRepo.save(departement);
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PostMapping("/Add")
+    public DepartementDTO addDepartment(@RequestBody DepartementDTO dto) {
+        return departementService.addDepartment(dto);
     }
 
-    @GetMapping
-    public List<Departement> getAll() {
-        return departementRepo.findAll();
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
+    @GetMapping("/AllDepartments")
+    public List<DepartementDTO> getAllDepartments() {
+        return departementService.getAllDepartments();
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
+    @GetMapping("/search")
+    public List<DepartementDTO> getDepartmentsByNom(@RequestParam String nom) {
+        return departementService.getDepartmentsByNom(nom);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PutMapping("/Update/{id}")
+    public DepartementDTO updateDepartment(
+            @PathVariable Long id,
+            @RequestBody DepartementDTO dto
+    ) {
+        return departementService.updateDepartment(id, dto);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    @DeleteMapping("/Delete/{id}")
+    public String deleteDepartment(@PathVariable Long id) {
+        return departementService.deleteDepartment(id);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    @GetMapping("/Archive")
+    public List<DepartementDTO> getArchivedDepartments() {
+        return departementService.getArchivedDepartments();
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    @PutMapping("/Restaurer/{id}")
+    public DepartementDTO restoreDepartment(@PathVariable Long id) {
+        return departementService.restoreDepartment(id);
     }
 }
