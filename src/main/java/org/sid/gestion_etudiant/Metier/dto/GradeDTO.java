@@ -14,8 +14,10 @@ public class GradeDTO {
     private String semestre;
 
     private Long studentId;
+    private String studentName;
 
     private Long courseId;
+    private String courseName;
 
     private boolean archived;
 

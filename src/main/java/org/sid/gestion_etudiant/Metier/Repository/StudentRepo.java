@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface StudentRepo extends JpaRepository<Student, Long> {
 
@@ -17,4 +18,8 @@ public interface StudentRepo extends JpaRepository<Student, Long> {
     List<Student> findByArchivedTrue();
 
     List<Student> findByArchivedTrueAndArchivedAtBefore(LocalDateTime date);
+
+    Optional<Student> findByPrenomIgnoreCaseAndNomIgnoreCase(String prenom, String nom);
+
+    Optional<Student> findByNomIgnoreCase(String nom);
 }

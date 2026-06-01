@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface CoursesRepo extends JpaRepository<Courses, Long> {
 
@@ -13,4 +14,6 @@ public interface CoursesRepo extends JpaRepository<Courses, Long> {
     List<Courses> findByArchivedTrue();
 
     List<Courses> findByArchivedTrueAndArchivedAtBefore(LocalDateTime date);
+
+    Optional<Courses> findByNomIgnoreCase(String nom);
 }

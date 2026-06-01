@@ -29,19 +29,8 @@ public class GradeServiceImpl implements GradeService {
 
     @Override
     public GradeDTO addGrade(GradeDTO gradeDTO) {
-        if (gradeDTO.getStudentId() == null) {
-            throw new IllegalArgumentException("Le champ studentId est obligatoire");
-        }
-
-        if (gradeDTO.getCourseId() == null) {
-            throw new IllegalArgumentException("Le champ courseId est obligatoire");
-        }
-
-        Student student = studentRepo.findById(gradeDTO.getStudentId())
-                .orElseThrow(() -> new StudentNotFoundException("Student not found"));
-
-        Courses course = coursesRepo.findById(gradeDTO.getCourseId())
-                .orElseThrow(() -> new CoursesNotFoundException("Course not found"));
+        Student student = resolveStudent(gradeDTO);
+        Courses course = resolveCourse(gradeDTO);
 
         Grade grade = GradeMapper.toEntity(gradeDTO);
 
@@ -51,6 +40,70 @@ public class GradeServiceImpl implements GradeService {
         grade.setArchivedAt(null);
 
         return GradeMapper.toDto(gradeRepo.save(grade));
+    }
+
+    @Override
+    public GradeDTO updateGrade(Long id, GradeDTO gradeDTO) {
+        Grade grade = gradeRepo.findById(id)
+                .orElseThrow(() -> new GradeNotFoundException("Grade non trouvée avec id : " + id));
+
+        if (grade.isArchived()) {
+            throw new RuntimeException("Impossible de modifier une note archivée. Restaurer d'abord.");
+        }
+
+        grade.setNote(gradeDTO.getNote());
+        grade.setSemestre(gradeDTO.getSemestre());
+
+        if (gradeDTO.getStudentId() != null || hasText(gradeDTO.getStudentName())) {
+            grade.setStudent(resolveStudent(gradeDTO));
+        }
+
+        if (gradeDTO.getCourseId() != null || hasText(gradeDTO.getCourseName())) {
+            grade.setCourses(resolveCourse(gradeDTO));
+        }
+
+        return GradeMapper.toDto(gradeRepo.save(grade));
+    }
+
+    private Student resolveStudent(GradeDTO gradeDTO) {
+        if (gradeDTO.getStudentId() != null) {
+            return studentRepo.findById(gradeDTO.getStudentId())
+                    .orElseThrow(() -> new StudentNotFoundException("Student not found"));
+        }
+
+        if (!hasText(gradeDTO.getStudentName())) {
+            throw new IllegalArgumentException("studentId ou studentName est obligatoire");
+        }
+
+        String studentName = gradeDTO.getStudentName().trim();
+
+        String[] parts = studentName.split("\\s+", 2);
+
+        if (parts.length == 2) {
+            return studentRepo.findByPrenomIgnoreCaseAndNomIgnoreCase(parts[0], parts[1])
+                    .orElseThrow(() -> new StudentNotFoundException("Student not found with name: " + studentName));
+        }
+
+        return studentRepo.findByNomIgnoreCase(studentName)
+                .orElseThrow(() -> new StudentNotFoundException("Student not found with name: " + studentName));
+    }
+
+    private Courses resolveCourse(GradeDTO gradeDTO) {
+        if (gradeDTO.getCourseId() != null) {
+            return coursesRepo.findById(gradeDTO.getCourseId())
+                    .orElseThrow(() -> new CoursesNotFoundException("Course not found"));
+        }
+
+        if (!hasText(gradeDTO.getCourseName())) {
+            throw new IllegalArgumentException("courseId ou courseName est obligatoire");
+        }
+
+        return coursesRepo.findByNomIgnoreCase(gradeDTO.getCourseName().trim())
+                .orElseThrow(() -> new CoursesNotFoundException("Course not found with name: " + gradeDTO.getCourseName()));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     @Override
@@ -79,33 +132,6 @@ public class GradeServiceImpl implements GradeService {
                 .orElseThrow(() -> new GradeNotFoundException("Grade non trouvée avec id : " + id));
 
         return GradeMapper.toDto(grade);
-    }
-
-    @Override
-    public GradeDTO updateGrade(Long id, GradeDTO gradeDTO) {
-        Grade grade = gradeRepo.findById(id)
-                .orElseThrow(() -> new GradeNotFoundException("Grade non trouvée avec id : " + id));
-
-        if (grade.isArchived()) {
-            throw new RuntimeException("Impossible de modifier une note archivée. Restaurer d'abord.");
-        }
-
-        grade.setNote(gradeDTO.getNote());
-        grade.setSemestre(gradeDTO.getSemestre());
-
-        if (gradeDTO.getStudentId() != null) {
-            Student student = studentRepo.findById(gradeDTO.getStudentId())
-                    .orElseThrow(() -> new StudentNotFoundException("Student not found"));
-            grade.setStudent(student);
-        }
-
-        if (gradeDTO.getCourseId() != null) {
-            Courses course = coursesRepo.findById(gradeDTO.getCourseId())
-                    .orElseThrow(() -> new CoursesNotFoundException("Course not found"));
-            grade.setCourses(course);
-        }
-
-        return GradeMapper.toDto(gradeRepo.save(grade));
     }
 
     @Override

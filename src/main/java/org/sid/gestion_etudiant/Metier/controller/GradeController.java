@@ -17,7 +17,7 @@ public class GradeController {
 
     private final GradeService gradeService;
 
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @PostMapping("/Ajouter")
     public GradeDTO create(@Valid @RequestBody GradeDTO gradeDTO) {
         return gradeService.addGrade(gradeDTO);
@@ -29,7 +29,7 @@ public class GradeController {
         return gradeService.getAllGrade();
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @GetMapping("/Archive")
     public List<GradeDTO> getArchivedGrades() {
         return gradeService.getArchivedGrades();
@@ -41,7 +41,7 @@ public class GradeController {
         return gradeService.getGradeById(id);
     }
 
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @PutMapping("/Modifier/{id}")
     public GradeDTO update(
             @PathVariable Long id,
@@ -50,7 +50,7 @@ public class GradeController {
         return gradeService.updateGrade(id, gradeDTO);
     }
 
-    @PreAuthorize("hasRole('TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @DeleteMapping("/Supprimer/{id}")
     public ResponseEntity<String> deleteGrade(@PathVariable Long id) {
         String message = gradeService.deleteGrade(id);
