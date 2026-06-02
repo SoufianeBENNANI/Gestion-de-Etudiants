@@ -7,6 +7,8 @@ import org.sid.gestion_etudiant.Metier.dto.PayementDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 
@@ -29,7 +31,7 @@ public class PayementController {
         return payementService.getAllPayements();
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/Archive")
     public List<PayementDTO> getArchivedPayements() {
         return payementService.getArchivedPayements();
@@ -57,10 +59,21 @@ public class PayementController {
         return ResponseEntity.ok(message);
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @PutMapping("/Restaurer/{id}")
     public ResponseEntity<PayementDTO> restorePayement(@PathVariable Long id) {
         PayementDTO restoredPayement = payementService.restorePayement(id);
         return ResponseEntity.ok(restoredPayement);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @GetMapping("/DownloadPDF")
+    public ResponseEntity<byte[]> downloadPayementsPdf() {
+        byte[] pdf = payementService.generatePayementsPdf();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=payements-list.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 }

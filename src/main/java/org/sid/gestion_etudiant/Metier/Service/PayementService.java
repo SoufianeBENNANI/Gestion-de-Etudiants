@@ -21,4 +21,6 @@ public interface PayementService {
     PayementDTO restorePayement(Long id);
 
     void deleteOldArchivedPayements();
+
+    byte[] generatePayementsPdf();
 }
