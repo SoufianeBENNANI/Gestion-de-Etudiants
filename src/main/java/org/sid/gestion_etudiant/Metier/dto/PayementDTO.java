@@ -24,6 +24,10 @@ public class PayementDTO {
     @NotNull(message = "L'ID de l'étudiant est obligatoire")
     private Long studentId;
 
+    private String studentNom;
+
+    private String studentPrenom;
+
     private boolean archived;
 
     private LocalDateTime archivedAt;

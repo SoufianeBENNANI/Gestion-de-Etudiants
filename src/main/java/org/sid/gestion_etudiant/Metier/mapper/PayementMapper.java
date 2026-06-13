@@ -17,6 +17,8 @@ public class PayementMapper {
 
         if (payement.getStudent() != null) {
             payementDTO.setStudentId(payement.getStudent().getId());
+            payementDTO.setStudentNom(payement.getStudent().getNom());
+            payementDTO.setStudentPrenom(payement.getStudent().getPrenom());
         }
 
         return payementDTO;

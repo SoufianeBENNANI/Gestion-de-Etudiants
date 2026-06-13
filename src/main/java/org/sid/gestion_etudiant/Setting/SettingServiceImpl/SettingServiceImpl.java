@@ -8,8 +8,6 @@ import org.sid.gestion_etudiant.Setting.SettingRepo.SettingRepo;
 import org.sid.gestion_etudiant.Setting.SettingService.SettingService;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class SettingServiceImpl implements SettingService {
@@ -18,17 +16,19 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     public Setting getSettings() {
-        List<Setting> settings = settingRepo.findAll();
-
-        if (settings.isEmpty()) {
-            return createDefaultSettings();
-        }
-
-        return settings.get(0);
+        return settingRepo.findTopByOrderByIdDesc()
+                .orElseGet(this::createDefaultSettings);
     }
 
     @Override
     public Setting createDefaultSettings() {
+        Setting existingSetting = settingRepo.findTopByOrderByIdDesc()
+                .orElse(null);
+
+        if (existingSetting != null) {
+            return existingSetting;
+        }
+
         Setting setting = new Setting();
 
         setting.setSchoolName("School");
@@ -45,10 +45,11 @@ public class SettingServiceImpl implements SettingService {
 
         return settingRepo.save(setting);
     }
+
     @Override
     public Setting updateSettings(Long id, Setting settingData) {
         Setting setting = settingRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Settings not found"));
+                .orElseThrow(() -> new RuntimeException("Settings not found with id: " + id));
 
         setting.setSchoolName(settingData.getSchoolName());
         setting.setSchoolEmail(settingData.getSchoolEmail());
