@@ -2,6 +2,10 @@ package org.sid.gestion_etudiant.Metier.controller;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.sid.gestion_etudiant.Kafka.Entity.AppEvent;
+import org.sid.gestion_etudiant.Kafka.Enum.EventAction;
+import org.sid.gestion_etudiant.Kafka.Enum.EventEntity;
+import org.sid.gestion_etudiant.Kafka.Service.KafkaProducerService;
 import org.sid.gestion_etudiant.Metier.Service.AttendanceService;
 import org.sid.gestion_etudiant.Metier.dto.AttendanceDTO;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +20,14 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final KafkaProducerService kafkaProducerService;
 
     @PreAuthorize("hasRole('TEACHER')")
     @PostMapping("/Ajouter")
     public AttendanceDTO create(@Valid @RequestBody AttendanceDTO attendanceDTO) {
-        return attendanceService.addAttendance(attendanceDTO);
+        AttendanceDTO savedAttendance = attendanceService.addAttendance(attendanceDTO);
+        sendEvent(EventAction.CREATED, savedAttendance.getId(), "Attendance created successfully");
+        return savedAttendance;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
@@ -47,7 +54,9 @@ public class AttendanceController {
             @PathVariable Long id,
             @Valid @RequestBody AttendanceDTO attendanceDTO
     ) {
-        return attendanceService.updateAttendance(id, attendanceDTO);
+        AttendanceDTO updatedAttendance = attendanceService.updateAttendance(id, attendanceDTO);
+        sendEvent(EventAction.UPDATED, id, "Attendance updated successfully");
+        return updatedAttendance;
     }
 
     @PreAuthorize("hasRole('TEACHER')")
@@ -57,10 +66,19 @@ public class AttendanceController {
         return ResponseEntity.ok(message);
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TEACHER')")
+    @PreAuthorize("hasRole('TEACHER')")
     @PutMapping("/Restaurer/{id}")
     public ResponseEntity<AttendanceDTO> restoreAttendance(@PathVariable Long id) {
         AttendanceDTO restoredAttendance = attendanceService.restoreAttendance(id);
         return ResponseEntity.ok(restoredAttendance);
+    }
+
+    private void sendEvent(EventAction action, Long entityId, String message) {
+        AppEvent event = new AppEvent();
+        event.setEntity(EventEntity.ATTENDANCE);
+        event.setAction(action);
+        event.setEntityId(entityId);
+        event.setMessage(message);
+        kafkaProducerService.sendEvent(event);
     }
 }

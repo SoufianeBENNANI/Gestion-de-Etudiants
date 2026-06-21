@@ -22,10 +22,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> {}) // AJOUT ICI (IMPORTANT pour React)
+                .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/api/notifications/**").permitAll()
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/teacher/**").hasRole("TEACHER")
@@ -50,15 +51,12 @@ public class SecurityConfig {
         return converter;
     }
 
-    // CORRECTION ICI
     private Collection<GrantedAuthority> extractAuthorities(Jwt jwt) {
 
         Set<GrantedAuthority> authorities = new HashSet<>();
 
-        // 1. Realm roles
         Map<String, Object> realmAccess = jwt.getClaim("realm_access");
         if (realmAccess != null && realmAccess.get("roles") instanceof Collection<?>) {
-
             for (Object role : (Collection<?>) realmAccess.get("roles")) {
                 if (role instanceof String) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
@@ -66,14 +64,11 @@ public class SecurityConfig {
             }
         }
 
-        //  2. Client roles (spring_boot_app)
         Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
         if (resourceAccess != null && resourceAccess.get("spring_boot_app") instanceof Map<?, ?>) {
-
             Map<?, ?> client = (Map<?, ?>) resourceAccess.get("spring_boot_app");
 
             if (client.get("roles") instanceof Collection<?>) {
-
                 for (Object role : (Collection<?>) client.get("roles")) {
                     if (role instanceof String) {
                         authorities.add(new SimpleGrantedAuthority("ROLE_" + role));

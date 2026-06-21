@@ -2,6 +2,10 @@ package org.sid.gestion_etudiant.Metier.controller;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.sid.gestion_etudiant.Kafka.Entity.AppEvent;
+import org.sid.gestion_etudiant.Kafka.Enum.EventAction;
+import org.sid.gestion_etudiant.Kafka.Enum.EventEntity;
+import org.sid.gestion_etudiant.Kafka.Service.KafkaProducerService;
 import org.sid.gestion_etudiant.Metier.Service.PayementService;
 import org.sid.gestion_etudiant.Metier.dto.PayementDTO;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +22,14 @@ import java.util.List;
 public class PayementController {
 
     private final PayementService payementService;
+    private final KafkaProducerService kafkaProducerService;
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/Ajouter")
     public PayementDTO create(@Valid @RequestBody PayementDTO payementDTO) {
-        return payementService.addPayement(payementDTO);
+        PayementDTO savedPayement = payementService.addPayement(payementDTO);
+        sendEvent(EventAction.CREATED, savedPayement.getId(), "Payement created successfully");
+        return savedPayement;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','STUDENT','MANAGER')")
@@ -49,20 +56,24 @@ public class PayementController {
             @PathVariable Long id,
             @Valid @RequestBody PayementDTO payementDTO
     ) {
-        return payementService.updatePayement(id, payementDTO);
+        PayementDTO updatedPayement = payementService.updatePayement(id, payementDTO);
+        sendEvent(EventAction.UPDATED, id, "Payement updated successfully");
+        return updatedPayement;
     }
 
     @PreAuthorize("hasRole('MANAGER')")
     @DeleteMapping("/Supprimer/{id}")
     public ResponseEntity<String> deletePayement(@PathVariable Long id) {
         String message = payementService.deletePayement(id);
+        sendEvent(EventAction.DELETED, id, "Payement deleted successfully");
         return ResponseEntity.ok(message);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PutMapping("/Restaurer/{id}")
     public ResponseEntity<PayementDTO> restorePayement(@PathVariable Long id) {
         PayementDTO restoredPayement = payementService.restorePayement(id);
+        sendEvent(EventAction.RESTORED, id, "Payement restored successfully");
         return ResponseEntity.ok(restoredPayement);
     }
 
@@ -70,10 +81,20 @@ public class PayementController {
     @GetMapping("/DownloadPDF")
     public ResponseEntity<byte[]> downloadPayementsPdf() {
         byte[] pdf = payementService.generatePayementsPdf();
+        sendEvent(EventAction.GENERATED, null, "Payements PDF generated successfully");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=payements-list.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
+    }
+
+    private void sendEvent(EventAction action, Long entityId, String message) {
+        AppEvent event = new AppEvent();
+        event.setEntity(EventEntity.PAYEMENT);
+        event.setAction(action);
+        event.setEntityId(entityId);
+        event.setMessage(message);
+        kafkaProducerService.sendEvent(event);
     }
 }
