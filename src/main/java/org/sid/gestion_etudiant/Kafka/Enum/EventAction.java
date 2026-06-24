@@ -7,6 +7,8 @@ public enum EventAction {
     RESTORED,
     GENERATED,
     PREDICTED,
+
     SENT,
-    READ
+    READ,
+    RECEIVED
 }

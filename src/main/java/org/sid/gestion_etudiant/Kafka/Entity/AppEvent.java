@@ -14,6 +14,5 @@ public class AppEvent {
     private Long entityId;
     private String message;
 
-
     private LocalDateTime createdAt = LocalDateTime.now();
 }

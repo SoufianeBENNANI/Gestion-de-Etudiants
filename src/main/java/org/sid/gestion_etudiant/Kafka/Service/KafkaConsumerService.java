@@ -9,7 +9,8 @@ public class KafkaConsumerService {
 
     @KafkaListener(
             topics = "${app.kafka.topic}",
-            groupId = "gestion-etudiant-log-group"
+            groupId = "gestion-etudiant-log-group",
+            containerFactory = "kafkaListenerContainerFactory"
     )
     public void consume(AppEvent event) {
         System.out.println("Kafka event received: "

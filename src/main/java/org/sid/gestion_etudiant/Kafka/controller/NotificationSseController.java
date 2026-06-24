@@ -27,12 +27,21 @@ public class NotificationSseController {
         emitter.onTimeout(() -> emitters.remove(emitter));
         emitter.onError(error -> emitters.remove(emitter));
 
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("connected")
+                    .data("SSE connected"));
+        } catch (IOException e) {
+            emitters.remove(emitter);
+        }
+
         return emitter;
     }
 
     @KafkaListener(
             topics = "${app.kafka.topic}",
-            groupId = "gestion-etudiant-notification-group"
+            groupId = "gestion-etudiant-notification-group",
+            containerFactory = "kafkaListenerContainerFactory"
     )
     public void listenKafka(AppEvent event) {
         System.out.println("SSE notification received: "
@@ -43,7 +52,7 @@ public class NotificationSseController {
         for (SseEmitter emitter : emitters) {
             try {
                 emitter.send(SseEmitter.event()
-                        .name("message")
+                        .name("notification")
                         .data(event));
             } catch (IOException e) {
                 emitters.remove(emitter);
