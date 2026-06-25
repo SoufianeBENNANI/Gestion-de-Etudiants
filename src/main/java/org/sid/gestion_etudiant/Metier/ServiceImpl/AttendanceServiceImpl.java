@@ -11,8 +11,10 @@ import org.sid.gestion_etudiant.Metier.dto.AttendanceDTO;
 import org.sid.gestion_etudiant.Metier.mapper.AttendanceMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @AllArgsConstructor
@@ -21,8 +23,20 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRepo attendanceRepo;
     private final StudentRepo studentRepo;
 
+    @Transactional
     @Override
     public AttendanceDTO addAttendance(AttendanceDTO attendanceDTO) {
+
+        if (attendanceDTO.getStudentId() == null) {
+            throw new RuntimeException("Student id is required");
+        }
+
+        if (attendanceDTO.getDate() == null) {
+            throw new RuntimeException("Attendance date is required");
+        }
+
+        validateAttendanceDate(attendanceDTO.getDate());
+
         Student student = studentRepo.findById(attendanceDTO.getStudentId())
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
@@ -40,6 +54,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         Attendance attendance = AttendanceMapper.toEntity(attendanceDTO);
         attendance.setStudent(student);
+        attendance.setDate(attendanceDTO.getDate());
+        attendance.setStatus(attendanceDTO.getStatus());
         attendance.setArchived(false);
         attendance.setArchivedAt(null);
 
@@ -72,8 +88,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         return AttendanceMapper.toDto(attendance);
     }
 
+    @Transactional
     @Override
     public AttendanceDTO updateAttendance(Long id, AttendanceDTO attendanceDTO) {
+
         Attendance attendance = attendanceRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Attendance not found with id " + id));
 
@@ -81,33 +99,59 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new RuntimeException("Cannot update archived attendance with id " + id);
         }
 
-        Long studentId = attendanceDTO.getStudentId() != null
-                ? attendanceDTO.getStudentId()
-                : attendance.getStudent().getId();
+        Student currentStudent = attendance.getStudent();
+        LocalDate currentDate = attendance.getDate();
 
-        List<Attendance> sameDateAttendances =
-                attendanceRepo.findByStudentIdAndDate(studentId, attendanceDTO.getDate());
+        Student newStudent = currentStudent;
 
-        boolean duplicateExists = sameDateAttendances.stream()
-                .anyMatch(item ->
-                        !item.getId().equals(id) &&
-                                !item.isArchived()
-                );
+        if (attendanceDTO.getStudentId() != null
+                && !Objects.equals(attendanceDTO.getStudentId(), currentStudent.getId())) {
 
-        if (duplicateExists) {
-            throw new RuntimeException(
-                    "Another attendance already exists for this student on this date"
-            );
+            newStudent = studentRepo.findById(attendanceDTO.getStudentId())
+                    .orElseThrow(() -> new RuntimeException("Student not found"));
         }
 
-        attendance.setDate(attendanceDTO.getDate());
-        attendance.setStatus(attendanceDTO.getStatus());
+        LocalDate newDate = attendanceDTO.getDate() != null
+                ? attendanceDTO.getDate()
+                : currentDate;
 
-        if (attendanceDTO.getStudentId() != null) {
-            Student student = studentRepo.findById(attendanceDTO.getStudentId())
-                    .orElseThrow(() -> new RuntimeException("Student not found"));
+        if (newDate == null) {
+            throw new RuntimeException("Attendance date is required");
+        }
 
-            attendance.setStudent(student);
+        boolean studentChanged =
+                !Objects.equals(newStudent.getId(), currentStudent.getId());
+
+        boolean dateChanged =
+                !Objects.equals(newDate, currentDate);
+
+        if (attendanceDTO.getDate() != null) {
+            validateAttendanceDate(newDate);
+        }
+
+        if (studentChanged || dateChanged) {
+
+            List<Attendance> sameDateAttendances =
+                    attendanceRepo.findByStudentIdAndDate(newStudent.getId(), newDate);
+
+            boolean duplicateExists = sameDateAttendances.stream()
+                    .anyMatch(item ->
+                            !Objects.equals(item.getId(), attendance.getId())
+                                    && !item.isArchived()
+                    );
+
+            if (duplicateExists) {
+                throw new RuntimeException(
+                        "Another attendance already exists for this student on this date"
+                );
+            }
+
+            attendance.setStudent(newStudent);
+            attendance.setDate(newDate);
+        }
+
+        if (attendanceDTO.getStatus() != null) {
+            attendance.setStatus(attendanceDTO.getStatus());
         }
 
         Attendance updatedAttendance = attendanceRepo.save(attendance);
@@ -115,8 +159,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         return AttendanceMapper.toDto(updatedAttendance);
     }
 
+    @Transactional
     @Override
     public String deleteAttendance(Long id) {
+
         Attendance attendance = attendanceRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Attendance not found with id " + id));
 
@@ -133,14 +179,18 @@ public class AttendanceServiceImpl implements AttendanceService {
                 + ". It will be permanently deleted after 7 days.";
     }
 
+    @Transactional
     @Override
     public AttendanceDTO restoreAttendance(Long id) {
+
         Attendance attendance = attendanceRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Attendance not found with id " + id));
 
         if (!attendance.isArchived()) {
             throw new RuntimeException("Attendance is not archived");
         }
+
+        validateAttendanceDate(attendance.getDate());
 
         boolean activeAttendanceExists =
                 attendanceRepo.existsByStudentIdAndDateAndArchivedFalse(
@@ -165,11 +215,23 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Transactional
     @Override
     public void deleteOldArchivedAttendances() {
+
         LocalDateTime limitDate = LocalDateTime.now().minusDays(7);
 
         List<Attendance> oldArchivedAttendances =
                 attendanceRepo.findByArchivedTrueAndArchivedAtBefore(limitDate);
 
         attendanceRepo.deleteAll(oldArchivedAttendances);
+    }
+
+    private void validateAttendanceDate(LocalDate date) {
+
+        LocalDate today = LocalDate.now();
+
+        if (date.isBefore(today)) {
+            throw new RuntimeException(
+                    "You cannot add or update attendance with a past date"
+            );
+        }
     }
 }
