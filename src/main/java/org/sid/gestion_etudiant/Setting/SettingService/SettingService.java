@@ -9,4 +9,6 @@ public interface SettingService {
     Setting updateSettings(Long id, Setting setting);
 
     Setting createDefaultSettings();
+
+    Setting updateAppearanceSettings(Long id, Setting setting);
 }

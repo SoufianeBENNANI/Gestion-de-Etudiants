@@ -65,4 +65,17 @@ public class SettingServiceImpl implements SettingService {
 
         return settingRepo.save(setting);
     }
+
+    @Override
+    public Setting updateAppearanceSettings(Long id, Setting setting) {
+        Setting existingSetting = settingRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Settings not found"));
+
+        existingSetting.setThemeMode(setting.getThemeMode());
+        existingSetting.setLanguage(setting.getLanguage());
+        existingSetting.setPrimaryColor(setting.getPrimaryColor());
+        existingSetting.setSecondaryColor(setting.getSecondaryColor());
+
+        return settingRepo.save(existingSetting);
+    }
 }
