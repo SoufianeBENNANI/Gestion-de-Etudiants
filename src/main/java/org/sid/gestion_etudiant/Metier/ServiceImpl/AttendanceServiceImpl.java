@@ -190,8 +190,6 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new RuntimeException("Attendance is not archived");
         }
 
-        validateAttendanceDate(attendance.getDate());
-
         boolean activeAttendanceExists =
                 attendanceRepo.existsByStudentIdAndDateAndArchivedFalse(
                         attendance.getStudent().getId(),
