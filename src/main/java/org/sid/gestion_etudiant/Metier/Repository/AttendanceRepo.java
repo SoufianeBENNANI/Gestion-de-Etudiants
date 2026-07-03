@@ -3,6 +3,8 @@ package org.sid.gestion_etudiant.Metier.Repository;
 import org.sid.gestion_etudiant.Metier.Entity.Attendance;
 import org.sid.gestion_etudiant.Metier.enums.AttendanceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,4 +23,7 @@ public interface AttendanceRepo extends JpaRepository<Attendance, Long> {
     boolean existsByStudentIdAndDateAndArchivedTrue(Long studentId, LocalDate date);
 
     List<Attendance> findByStudentIdAndDate(Long studentId, LocalDate date);
+
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.student.id = :studentId AND a.status = 'ABSENT' AND a.archived = false")
+    Long countAbsencesByStudentId(@Param("studentId") Long studentId);
 }

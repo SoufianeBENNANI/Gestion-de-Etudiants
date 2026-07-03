@@ -6,6 +6,8 @@ import org.sid.gestion_etudiant.IA.Entity.StudentIAPrediction;
 import org.sid.gestion_etudiant.IA.Repository.StudentIAPredictionRepo;
 import org.sid.gestion_etudiant.IA.Service.PredictionService;
 import org.sid.gestion_etudiant.Metier.Entity.Student;
+import org.sid.gestion_etudiant.Metier.Repository.AttendanceRepo;
+import org.sid.gestion_etudiant.Metier.Repository.GradeRepo;
 import org.sid.gestion_etudiant.Metier.Repository.StudentRepo;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,8 @@ public class PredictionServiceImpl implements PredictionService {
 
     private final StudentIAPredictionRepo predictionRepo;
     private final StudentRepo studentRepo;
+    private final GradeRepo gradeRepo;
+    private final AttendanceRepo attendanceRepo;
 
     @Override
     public List<StudentPerformanceDTO> getAll() {
@@ -27,22 +31,26 @@ public class PredictionServiceImpl implements PredictionService {
                 .map(prediction -> {
                     Student student = prediction.getStudent();
 
-                    return new StudentPerformanceDTO(
-                            prediction.getId(),
-                            student != null ? student.getId() : null,
-                            student != null ? student.getNom() : null,
-                            student != null ? student.getPrenom() : null,
-                            student != null ? student.getEmail() : null,
-                            prediction.getMoyenne(),
-                            prediction.getAbsences(),
-                            prediction.getPrediction(),
-                            prediction.getScoreRisque(),
-                            prediction.getNiveau(),
-                            prediction.getRecommandation(),
-                            prediction.getDate(),
-                            prediction.getStatus(),
-                            true
-                    );
+                    if (student == null) {
+                        return new StudentPerformanceDTO(
+                                prediction.getId(),
+                                null,
+                                null,
+                                null,
+                                null,
+                                prediction.getMoyenne(),
+                                prediction.getAbsences(),
+                                prediction.getPrediction(),
+                                prediction.getScoreRisque(),
+                                prediction.getNiveau(),
+                                prediction.getRecommandation(),
+                                prediction.getDate(),
+                                prediction.getStatus(),
+                                true
+                        );
+                    }
+
+                    return buildStudentPerformanceDTO(student, prediction);
                 })
                 .toList();
     }
@@ -61,44 +69,95 @@ public class PredictionServiceImpl implements PredictionService {
                     Optional<StudentIAPrediction> optionalPrediction =
                             predictionRepo.findTopByStudentIdOrderByDateDesc(student.getId());
 
-                    if (optionalPrediction.isPresent()) {
-                        StudentIAPrediction prediction = optionalPrediction.get();
-
-                        return new StudentPerformanceDTO(
-                                prediction.getId(),
-                                student.getId(),
-                                student.getNom(),
-                                student.getPrenom(),
-                                student.getEmail(),
-                                prediction.getMoyenne(),
-                                prediction.getAbsences(),
-                                prediction.getPrediction(),
-                                prediction.getScoreRisque(),
-                                prediction.getNiveau(),
-                                prediction.getRecommandation(),
-                                prediction.getDate(),
-                                prediction.getStatus(),
-                                true
-                        );
-                    }
-
-                    return new StudentPerformanceDTO(
-                            null,
-                            student.getId(),
-                            student.getNom(),
-                            student.getPrenom(),
-                            student.getEmail(),
-                            0.0,
-                            0,
-                            "No prediction yet",
-                            0.0,
-                            "N/A",
-                            "Generate prediction for this student",
-                            null,
-                            "NO_PREDICTION",
-                            false
+                    return buildStudentPerformanceDTO(
+                            student,
+                            optionalPrediction.orElse(null)
                     );
                 })
                 .toList();
+    }
+
+    private StudentPerformanceDTO buildStudentPerformanceDTO(
+            Student student,
+            StudentIAPrediction prediction
+    ) {
+        double moyenne = calculateMoyenne(student.getId());
+        long absences = calculateAbsences(student.getId());
+
+        double scoreRisque = calculateRiskScore(moyenne, absences);
+        String predictionText = getPredictionText(scoreRisque);
+        String niveau = getNiveau(scoreRisque);
+        String status = getStatus(scoreRisque);
+        String recommandation = getRecommandation(scoreRisque, moyenne, absences);
+
+        return new StudentPerformanceDTO(
+                prediction != null ? prediction.getId() : null,
+                student.getId(),
+                student.getNom(),
+                student.getPrenom(),
+                student.getEmail(),
+                moyenne,
+                absences,
+                predictionText,
+                scoreRisque,
+                niveau,
+                recommandation,
+                prediction != null ? prediction.getDate() : null,
+                status,
+                prediction != null
+        );
+    }
+
+    private double calculateMoyenne(Long studentId) {
+        Double moyenne = gradeRepo.calculateAverageByStudentId(studentId);
+        return moyenne != null ? moyenne : 0.0;
+    }
+
+    private long calculateAbsences(Long studentId) {
+        Long absences = attendanceRepo.countAbsencesByStudentId(studentId);
+        return absences != null ? absences : 0L;
+    }
+
+    private double calculateRiskScore(double moyenne, long absences) {
+        double noteRisk = (20 - moyenne) * 3;
+        double absenceRisk = absences * 5;
+
+        double score = noteRisk + absenceRisk;
+
+        return Math.max(0, Math.min(score, 100));
+    }
+
+    private String getPredictionText(double scoreRisque) {
+        if (scoreRisque >= 70) return "Risque élevé";
+        if (scoreRisque >= 40) return "Risque modéré";
+        return "Risque faible";
+    }
+
+    private String getNiveau(double scoreRisque) {
+        if (scoreRisque >= 70) return "Élevé";
+        if (scoreRisque >= 40) return "Moyen";
+        return "Faible";
+    }
+
+    private String getStatus(double scoreRisque) {
+        if (scoreRisque >= 70) return "HIGH";
+        if (scoreRisque >= 40) return "MODERATE";
+        return "LOW";
+    }
+
+    private String getRecommandation(double scoreRisque, double moyenne, long absences) {
+        if (scoreRisque >= 70) {
+            return "Risque élevé : suivi urgent recommandé.";
+        }
+
+        if (scoreRisque >= 40) {
+            return "Risque modéré : améliorer présence et travail.";
+        }
+
+        if (moyenne >= 15 && absences <= 2) {
+            return "Bonne performance : continuer les efforts.";
+        }
+
+        return "Risque faible : maintenir un bon rythme.";
     }
 }
