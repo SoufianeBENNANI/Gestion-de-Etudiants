@@ -6,11 +6,9 @@ import org.sid.gestion_etudiant.Notification.Dto.NotificationRequest;
 import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
 import org.sid.gestion_etudiant.Notification.Service.NotificationService;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collection;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -52,29 +50,33 @@ public class NotificationController {
     private RecipientRole extractSenderRole(
             Authentication authentication
     ) {
-        Collection<?> authorities =
-                authentication.getAuthorities();
-
-        for (Object authorityObject : authorities) {
+        for (
+                GrantedAuthority grantedAuthority :
+                authentication.getAuthorities()
+        ) {
             String authority =
-                    authorityObject.toString();
+                    grantedAuthority.getAuthority();
 
             if (!authority.startsWith("ROLE_")) {
                 continue;
             }
 
             String roleName =
-                    authority.substring("ROLE_".length());
+                    authority.substring(
+                            "ROLE_".length()
+                    );
 
             try {
-                return RecipientRole.valueOf(roleName);
+                return RecipientRole.valueOf(
+                        roleName.toUpperCase()
+                );
             } catch (IllegalArgumentException ignored) {
-                // Continuer vers le rôle suivant
+                // Continuer vers l'autorité suivante
             }
         }
 
         throw new IllegalStateException(
-                "Aucun rôle valide trouvé dans le token"
+                "Aucun rôle valide trouvé dans le token Keycloak."
         );
     }
 

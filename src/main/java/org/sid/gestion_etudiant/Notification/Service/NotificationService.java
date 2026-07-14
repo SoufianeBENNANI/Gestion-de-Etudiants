@@ -20,16 +20,9 @@ public class NotificationService {
     private final GmailService gmailService;
     private final KafkaProducerService kafkaProducerService;
 
-    /*
-     * Expéditeur -> destinataires autorisés
-     */
     private static final Map<RecipientRole, Set<RecipientRole>>
             ALLOWED_RECIPIENTS = Map.of(
 
-            /*
-             * ADMIN peut envoyer à :
-             * TEACHER, STUDENT et MANAGER.
-             */
             RecipientRole.ADMIN,
             Set.of(
                     RecipientRole.TEACHER,
@@ -37,20 +30,12 @@ public class NotificationService {
                     RecipientRole.MANAGER
             ),
 
-            /*
-             * STUDENT peut envoyer à :
-             * TEACHER et ADMIN.
-             */
             RecipientRole.STUDENT,
             Set.of(
                     RecipientRole.TEACHER,
                     RecipientRole.ADMIN
             ),
 
-            /*
-             * TEACHER peut envoyer à :
-             * STUDENT, ADMIN et MANAGER.
-             */
             RecipientRole.TEACHER,
             Set.of(
                     RecipientRole.STUDENT,
@@ -58,12 +43,6 @@ public class NotificationService {
                     RecipientRole.MANAGER
             ),
 
-            /*
-             * MANAGER peut envoyer à :
-             * ADMIN et TEACHER.
-             *
-             * TEACHER a été ajouté ici.
-             */
             RecipientRole.MANAGER,
             Set.of(
                     RecipientRole.ADMIN,
@@ -88,7 +67,7 @@ public class NotificationService {
         );
 
         /*
-         * Envoi Gmail.
+         * Envoi du message Gmail.
          */
         gmailService.sendMail(
                 recipientEmail,
@@ -97,8 +76,59 @@ public class NotificationService {
         );
 
         /*
-         * Envoi Kafka pour la cloche.
+         * Événement Kafka destiné au véritable destinataire.
          */
+        AppEvent recipientEvent = createEvent(
+                senderEmail,
+                senderRole,
+                recipientEmail,
+                recipientRole,
+                body,
+                entity,
+                action,
+                entityId
+        );
+
+        kafkaProducerService.sendEvent(
+                recipientEvent
+        );
+
+        /*
+         * Lorsque l'ADMIN envoie une notification vers un autre rôle,
+         * une copie Kafka est envoyée à l'ADMIN pour qu'elle apparaisse
+         * également dans sa cloche.
+         */
+        if (
+                senderRole == RecipientRole.ADMIN &&
+                        recipientRole != RecipientRole.ADMIN
+        ) {
+            AppEvent adminEvent = createEvent(
+                    senderEmail,
+                    senderRole,
+                    senderEmail,
+                    RecipientRole.ADMIN,
+                    body,
+                    entity,
+                    action,
+                    entityId
+            );
+
+            kafkaProducerService.sendEvent(
+                    adminEvent
+            );
+        }
+    }
+
+    private AppEvent createEvent(
+            String senderEmail,
+            RecipientRole senderRole,
+            String recipientEmail,
+            RecipientRole recipientRole,
+            String body,
+            EventEntity entity,
+            EventAction action,
+            Long entityId
+    ) {
         AppEvent event = new AppEvent();
 
         event.setEntity(
@@ -122,7 +152,7 @@ public class NotificationService {
         event.setRecipientEmail(recipientEmail);
         event.setRecipientRole(recipientRole);
 
-        kafkaProducerService.sendEvent(event);
+        return event;
     }
 
     private void validatePermission(

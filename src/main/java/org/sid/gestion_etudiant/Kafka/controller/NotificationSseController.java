@@ -1,10 +1,14 @@
 package org.sid.gestion_etudiant.Kafka.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.sid.gestion_etudiant.Kafka.Entity.AppEvent;
 import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
-import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -15,15 +19,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/api/notifications")
-@CrossOrigin(origins = "http://localhost:5173")
+@RequiredArgsConstructor
 public class NotificationSseController {
 
+    private static final long SSE_TIMEOUT =
+            30L * 60L * 1000L;
+
     private final Map<RecipientRole, List<SseEmitter>>
-            emittersByRole = new ConcurrentHashMap<>();
+            emittersByRole =
+            new ConcurrentHashMap<>();
 
     @GetMapping(
             value = "/stream",
-            produces = "text/event-stream"
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
     )
     public SseEmitter stream(
             Authentication authentication
@@ -32,7 +40,7 @@ public class NotificationSseController {
                 extractRole(authentication);
 
         SseEmitter emitter =
-                new SseEmitter(Long.MAX_VALUE);
+                new SseEmitter(SSE_TIMEOUT);
 
         emittersByRole
                 .computeIfAbsent(
@@ -41,80 +49,113 @@ public class NotificationSseController {
                 )
                 .add(emitter);
 
-        System.out.println(
-                "SSE connecté : "
-                        + connectedRole
-                        + " - Total : "
-                        + emittersByRole
-                        .get(connectedRole)
-                        .size()
-        );
-
-        Runnable removeEmitter =
+        emitter.onCompletion(
                 () -> removeEmitter(
                         connectedRole,
                         emitter
-                );
+                )
+        );
 
-        emitter.onCompletion(removeEmitter);
-        emitter.onTimeout(removeEmitter);
-        emitter.onError(error -> removeEmitter.run());
+        emitter.onTimeout(() -> {
+            removeEmitter(
+                    connectedRole,
+                    emitter
+            );
+
+            emitter.complete();
+        });
+
+        emitter.onError(error ->
+                removeEmitter(
+                        connectedRole,
+                        emitter
+                )
+        );
 
         try {
             emitter.send(
-                    SseEmitter.event()
+                    SseEmitter
+                            .event()
                             .name("connected")
                             .data(
-                                    "SSE connected for "
-                                            + connectedRole
+                                    Map.of(
+                                            "connected", true,
+                                            "role", connectedRole.name()
+                                    )
                             )
             );
+
+            System.out.println(
+                    "SSE connecté pour le rôle : "
+                            + connectedRole
+            );
         } catch (IOException exception) {
-            removeEmitter.run();
+            removeEmitter(
+                    connectedRole,
+                    emitter
+            );
+
+            emitter.completeWithError(
+                    exception
+            );
         }
 
         return emitter;
     }
 
-    @KafkaListener(
-            topics = "${app.kafka.topic}",
-            groupId = "gestion-etudiant-notification-group",
-            containerFactory = "kafkaListenerContainerFactory"
-    )
-    public void listenKafka(AppEvent event) {
-        RecipientRole recipientRole =
-                event.getRecipientRole();
+    public void sendNotification(
+            AppEvent event
+    ) {
+        if (
+                event == null ||
+                        event.getRecipientRole() == null
+        ) {
+            System.out.println(
+                    "Événement SSE ignoré : recipientRole absent"
+            );
 
-        if (recipientRole == null) {
             return;
         }
 
-        List<SseEmitter> recipientEmitters =
+        RecipientRole recipientRole =
+                event.getRecipientRole();
+
+        List<SseEmitter> roleEmitters =
                 emittersByRole.getOrDefault(
                         recipientRole,
                         List.of()
                 );
 
         System.out.println(
-                "Notification reçue : "
-                        + event.getSenderRole()
-                        + " -> "
+                "Envoi SSE vers "
                         + recipientRole
-                        + " - "
-                        + event.getMessage()
+                        + " - Connexions actives : "
+                        + roleEmitters.size()
         );
 
-        for (SseEmitter emitter : recipientEmitters) {
+        for (SseEmitter emitter : roleEmitters) {
             try {
                 emitter.send(
-                        SseEmitter.event()
+                        SseEmitter
+                                .event()
                                 .name("notification")
                                 .data(event)
+                );
+
+                System.out.println(
+                        "Notification SSE envoyée vers "
+                                + recipientRole
+                                + " : "
+                                + event.getMessage()
                 );
             } catch (IOException exception) {
                 removeEmitter(
                         recipientRole,
                         emitter
+                );
+
+                emitter.completeWithError(
+                        exception
                 );
             }
         }
@@ -141,32 +182,35 @@ public class NotificationSseController {
     private RecipientRole extractRole(
             Authentication authentication
     ) {
-        return authentication.getAuthorities()
-                .stream()
-                .map(Object::toString)
-                .filter(
-                        authority ->
-                                authority.startsWith("ROLE_")
-                )
-                .map(
-                        authority ->
-                                authority.substring(5)
-                )
-                .map(role -> {
-                    try {
-                        return RecipientRole.valueOf(role);
-                    } catch (
-                            IllegalArgumentException exception
-                    ) {
-                        return null;
-                    }
-                })
-                .filter(role -> role != null)
-                .findFirst()
-                .orElseThrow(
-                        () -> new IllegalStateException(
-                                "Rôle utilisateur introuvable"
-                        )
+        for (
+                GrantedAuthority authority :
+                authentication.getAuthorities()
+        ) {
+            String role =
+                    authority.getAuthority();
+
+            if (!role.startsWith("ROLE_")) {
+                continue;
+            }
+
+            String roleName =
+                    role.substring(
+                            "ROLE_".length()
+                    );
+
+            try {
+                return RecipientRole.valueOf(
+                        roleName.toUpperCase()
                 );
+            } catch (
+                    IllegalArgumentException ignored
+            ) {
+                // Continuer
+            }
+        }
+
+        throw new IllegalStateException(
+                "Aucun rôle valide trouvé pour la connexion SSE."
+        );
     }
 }

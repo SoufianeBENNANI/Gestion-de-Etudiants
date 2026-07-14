@@ -8,9 +8,10 @@ import org.sid.gestion_etudiant.Kafka.Enum.EventEntity;
 import org.sid.gestion_etudiant.Kafka.Service.KafkaProducerService;
 import org.sid.gestion_etudiant.Metier.Service.AttendanceService;
 import org.sid.gestion_etudiant.Metier.dto.AttendanceDTO;
+import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,24 +27,30 @@ public class AttendanceController {
     private final KafkaProducerService kafkaProducerService;
 
     private static final DateTimeFormatter DATE_FORMATTER =
-            DateTimeFormatter.ofPattern("dd.MM.yyyy");
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @PreAuthorize("hasRole('TEACHER')")
     @PostMapping("/Ajouter")
-    public AttendanceDTO create(@Valid @RequestBody AttendanceDTO attendanceDTO,
-                                @AuthenticationPrincipal Jwt jwt) {
+    public AttendanceDTO create(
+            @Valid @RequestBody AttendanceDTO attendanceDTO,
+            Authentication authentication
+    ) {
+        AttendanceDTO savedAttendance =
+                attendanceService.addAttendance(attendanceDTO);
 
-        AttendanceDTO savedAttendance = attendanceService.addAttendance(attendanceDTO);
+        String message =
+                buildAttendanceMessage(
+                        "a enregistré",
+                        savedAttendance,
+                        authentication
+                );
 
-        String teacherName = getTeacherName(jwt);
-
-        String message = buildAttendanceMessage(
-                teacherName,
-                "a créé",
-                savedAttendance
+        sendEvent(
+                EventAction.CREATED,
+                savedAttendance.getId(),
+                message,
+                authentication
         );
-
-        sendEvent(EventAction.CREATED, savedAttendance.getId(), message);
 
         return savedAttendance;
     }
@@ -62,147 +69,270 @@ public class AttendanceController {
 
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
     @GetMapping("/Recherche/{id}")
-    public AttendanceDTO getById(@PathVariable Long id) {
+    public AttendanceDTO getById(
+            @PathVariable Long id
+    ) {
         return attendanceService.getAttendanceById(id);
     }
 
     @PreAuthorize("hasRole('TEACHER')")
     @PutMapping("/Modifier/{id}")
-    public AttendanceDTO update(@PathVariable Long id,
-                                @Valid @RequestBody AttendanceDTO attendanceDTO,
-                                @AuthenticationPrincipal Jwt jwt) {
-
+    public AttendanceDTO update(
+            @PathVariable Long id,
+            @Valid @RequestBody AttendanceDTO attendanceDTO,
+            Authentication authentication
+    ) {
         AttendanceDTO updatedAttendance =
-                attendanceService.updateAttendance(id, attendanceDTO);
+                attendanceService.updateAttendance(
+                        id,
+                        attendanceDTO
+                );
 
-        String teacherName = getTeacherName(jwt);
+        String message =
+                buildAttendanceMessage(
+                        "a modifié",
+                        updatedAttendance,
+                        authentication
+                );
 
-        String message = buildAttendanceMessage(
-                teacherName,
-                "a modifié",
-                updatedAttendance
+        sendEvent(
+                EventAction.UPDATED,
+                updatedAttendance.getId(),
+                message,
+                authentication
         );
-
-        sendEvent(EventAction.UPDATED, updatedAttendance.getId(), message);
 
         return updatedAttendance;
     }
 
     @PreAuthorize("hasRole('TEACHER')")
     @DeleteMapping("/Supprimer/{id}")
-    public ResponseEntity<String> deleteAttendance(@PathVariable Long id,
-                                                   @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<String> deleteAttendance(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        AttendanceDTO attendance =
+                attendanceService.getAttendanceById(id);
 
-        AttendanceDTO attendance = attendanceService.getAttendanceById(id);
+        String serviceMessage =
+                attendanceService.deleteAttendance(id);
 
-        String responseMessage = attendanceService.deleteAttendance(id);
+        String notificationMessage =
+                buildAttendanceMessage(
+                        "a supprimé",
+                        attendance,
+                        authentication
+                );
 
-        String teacherName = getTeacherName(jwt);
-
-        String message = buildAttendanceMessage(
-                teacherName,
-                "a supprimé",
-                attendance
+        sendEvent(
+                EventAction.DELETED,
+                id,
+                notificationMessage,
+                authentication
         );
 
-        sendEvent(EventAction.DELETED, id, message);
-
-        return ResponseEntity.ok(responseMessage);
+        return ResponseEntity.ok(
+                serviceMessage
+        );
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @PutMapping("/Restaurer/{id}")
-    public ResponseEntity<AttendanceDTO> restoreAttendance(@PathVariable Long id,
-                                                           @AuthenticationPrincipal Jwt jwt) {
-
+    public ResponseEntity<AttendanceDTO> restoreAttendance(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
         AttendanceDTO restoredAttendance =
                 attendanceService.restoreAttendance(id);
 
-        String teacherName = getTeacherName(jwt);
+        String message =
+                buildAttendanceMessage(
+                        "a restauré",
+                        restoredAttendance,
+                        authentication
+                );
 
-        String message = buildAttendanceMessage(
-                teacherName,
-                "a restauré",
-                restoredAttendance
+        sendEvent(
+                EventAction.RESTORED,
+                restoredAttendance.getId(),
+                message,
+                authentication
         );
 
-        sendEvent(EventAction.RESTORED, restoredAttendance.getId(), message);
-
-        return ResponseEntity.ok(restoredAttendance);
+        return ResponseEntity.ok(
+                restoredAttendance
+        );
     }
 
-    private String getTeacherName(Jwt jwt) {
+    private String buildAttendanceMessage(
+            String action,
+            AttendanceDTO attendance,
+            Authentication authentication
+    ) {
+        String studentName =
+                buildStudentName(attendance);
 
-        if (jwt == null) {
-            return "teacher inconnu";
-        }
+        String attendanceDate =
+                attendance.getDate() != null
+                        ? attendance.getDate().format(
+                        DATE_FORMATTER
+                )
+                        : "date non renseignée";
 
-        String teacherName = jwt.getClaimAsString("name");
+        RecipientRole senderRole =
+                extractSenderRole(authentication);
 
-        if (teacherName == null || teacherName.isBlank()) {
-            teacherName = jwt.getClaimAsString("preferred_username");
-        }
+        String senderEmail =
+                extractSenderEmail(authentication);
 
-        if (teacherName == null || teacherName.isBlank()) {
-            teacherName = jwt.getSubject();
-        }
-
-        return teacherName;
-    }
-
-    private String buildAttendanceMessage(String teacherName,
-                                          String action,
-                                          AttendanceDTO attendance) {
-
-        String studentName = buildStudentName(attendance);
-
-        String attendanceDate = attendance.getDate() != null
-                ? attendance.getDate().format(DATE_FORMATTER)
-                : "date inconnue";
-
-        return "Le teacher " + teacherName + " "
+        return "Le "
+                + senderRole
+                + " "
+                + senderEmail
+                + " "
                 + action
-                + " une attendance concernant le student "
+                + " la présence de l'étudiant "
                 + studentName
-                + ". La date de cette absence est "
-                + attendanceDate;
+                + " pour le "
+                + attendanceDate
+                + ".";
     }
 
-    private String buildStudentName(AttendanceDTO attendance) {
+    private String buildStudentName(
+            AttendanceDTO attendance
+    ) {
+        String prenom =
+                attendance.getStudentPrenom() != null
+                        ? attendance.getStudentPrenom()
+                        : "";
 
-        String prenom = attendance.getStudentPrenom() != null
-                ? attendance.getStudentPrenom()
-                : "";
+        String nom =
+                attendance.getStudentNom() != null
+                        ? attendance.getStudentNom()
+                        : "";
 
-        String nom = attendance.getStudentNom() != null
-                ? attendance.getStudentNom()
-                : "";
-
-        String fullName = (prenom + " " + nom).trim();
+        String fullName =
+                (prenom + " " + nom).trim();
 
         if (!fullName.isBlank()) {
             return fullName;
         }
 
-        return "ID " + attendance.getStudentId();
+        return attendance.getStudentId() != null
+                ? "étudiant #" + attendance.getStudentId()
+                : "étudiant non identifié";
     }
 
-    private void sendEvent(EventAction action, Long entityId, String message) {
-
+    private void sendEvent(
+            EventAction action,
+            Long entityId,
+            String message,
+            Authentication authentication
+    ) {
         AppEvent event = new AppEvent();
 
-        event.setEntity(EventEntity.ATTENDANCE);
+        event.setEntity(
+                EventEntity.ATTENDANCE
+        );
+
         event.setAction(action);
         event.setEntityId(entityId);
         event.setMessage(message);
 
-        System.out.println("===== KAFKA ATTENDANCE EVENT =====");
-        System.out.println("Entity : " + event.getEntity());
-        System.out.println("Action : " + event.getAction());
-        System.out.println("ID     : " + event.getEntityId());
-        System.out.println("Msg    : " + event.getMessage());
-        System.out.println("==================================");
+        event.setSenderEmail(
+                extractSenderEmail(authentication)
+        );
+
+        event.setSenderRole(
+                extractSenderRole(authentication)
+        );
+
+        event.setRecipientRole(
+                RecipientRole.ADMIN
+        );
+
+        event.setRecipientEmail(null);
 
         kafkaProducerService.sendEvent(event);
+    }
+
+    private RecipientRole extractSenderRole(
+            Authentication authentication
+    ) {
+        if (authentication == null) {
+            throw new IllegalStateException(
+                    "Authentification introuvable."
+            );
+        }
+
+        return authentication
+                .getAuthorities()
+                .stream()
+                .map(authority ->
+                        authority.getAuthority()
+                )
+                .filter(authority ->
+                        authority.startsWith("ROLE_")
+                )
+                .map(authority ->
+                        authority.substring(
+                                "ROLE_".length()
+                        )
+                )
+                .map(String::toUpperCase)
+                .map(roleName -> {
+                    try {
+                        return RecipientRole.valueOf(
+                                roleName
+                        );
+                    } catch (
+                            IllegalArgumentException exception
+                    ) {
+                        return null;
+                    }
+                })
+                .filter(role -> role != null)
+                .findFirst()
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Aucun rôle valide trouvé dans le token."
+                        )
+                );
+    }
+
+    private String extractSenderEmail(
+            Authentication authentication
+    ) {
+        if (
+                authentication != null &&
+                        authentication.getPrincipal()
+                                instanceof Jwt jwt
+        ) {
+            String email =
+                    jwt.getClaimAsString("email");
+
+            if (
+                    email != null &&
+                            !email.isBlank()
+            ) {
+                return email;
+            }
+
+            String preferredUsername =
+                    jwt.getClaimAsString(
+                            "preferred_username"
+                    );
+
+            if (
+                    preferredUsername != null &&
+                            !preferredUsername.isBlank()
+            ) {
+                return preferredUsername;
+            }
+        }
+
+        return authentication != null
+                ? authentication.getName()
+                : "system";
     }
 }
