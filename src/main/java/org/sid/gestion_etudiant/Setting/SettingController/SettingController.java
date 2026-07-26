@@ -14,7 +14,7 @@ public class SettingController {
     private final SettingService settingService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','MANAGER','STUDENT')")
     public Setting getSettings() {
         return settingService.getSettings();
     }
@@ -35,7 +35,7 @@ public class SettingController {
     }
 
     @PutMapping("/appearance/{id}")
-    @PreAuthorize("hasAnyRole('TEACHER','MANAGER')")
+    @PreAuthorize("hasAnyRole('TEACHER','MANAGER','STUDENT')")
     public Setting updateAppearanceSettings(
             @PathVariable Long id,
             @RequestBody Setting setting

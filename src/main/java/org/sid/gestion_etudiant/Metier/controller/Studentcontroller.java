@@ -43,7 +43,7 @@ public class Studentcontroller {
         return studentService.getAllStudents();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','MANAGER')")
     @GetMapping("/Recherche")
     public List<StudentDTO> getByNom(@RequestParam String nom) {
 
