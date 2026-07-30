@@ -1,10 +1,16 @@
 package org.sid.gestion_etudiant.Optionnel.Service;
 
+import org.sid.gestion_etudiant.Metier.dto.CreateTeacherRequest;
+import org.sid.gestion_etudiant.Metier.dto.CreatedAccountResponse;
 import org.sid.gestion_etudiant.Optionnel.DTO.TeacherDTO;
 
 import java.util.List;
 
 public interface TeacherService {
+
+    CreatedAccountResponse createTeacherAccount(
+            CreateTeacherRequest request
+    );
 
     TeacherDTO addTeacher(TeacherDTO dto);
 
@@ -13,6 +19,8 @@ public interface TeacherService {
     List<TeacherDTO> getTeachersByNom(String nom);
 
     TeacherDTO getTeacherById(Long id);
+
+    TeacherDTO getTeacherByKeycloakId(String keycloakId);
 
     TeacherDTO updateTeacher(Long id, TeacherDTO dto);
 

@@ -17,8 +17,6 @@ public class TeacherDTO {
 
     private String specialite;
 
-    private Long departementId;
-
     private String departementNom;
 
     private boolean archived;

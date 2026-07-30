@@ -1,10 +1,16 @@
 package org.sid.gestion_etudiant.Metier.Service;
 
+import org.sid.gestion_etudiant.Metier.dto.CreateStudentRequest;
+import org.sid.gestion_etudiant.Metier.dto.CreatedAccountResponse;
 import org.sid.gestion_etudiant.Metier.dto.StudentDTO;
 
 import java.util.List;
 
 public interface StudentService {
+
+    CreatedAccountResponse createStudentAccount(
+            CreateStudentRequest request
+    );
 
     StudentDTO addStudent(StudentDTO dto);
 

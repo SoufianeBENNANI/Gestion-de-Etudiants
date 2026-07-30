@@ -11,15 +11,26 @@ public interface StudentRepo extends JpaRepository<Student, Long> {
 
     List<Student> findByNomContainsIgnoreCase(String nom);
 
-    List<Student> findByNomContainsIgnoreCaseAndArchivedFalse(String nom);
+    List<Student> findByNomContainsIgnoreCaseAndArchivedFalse(
+            String nom
+    );
 
     List<Student> findByArchivedFalse();
 
     List<Student> findByArchivedTrue();
 
-    List<Student> findByArchivedTrueAndArchivedAtBefore(LocalDateTime date);
+    List<Student> findByArchivedTrueAndArchivedAtBefore(
+            LocalDateTime date
+    );
 
-    Optional<Student> findByPrenomIgnoreCaseAndNomIgnoreCase(String prenom, String nom);
+    Optional<Student> findByPrenomIgnoreCaseAndNomIgnoreCase(
+            String prenom,
+            String nom
+    );
 
     Optional<Student> findByNomIgnoreCase(String nom);
+
+    Optional<Student> findByKeycloakId(String keycloakId);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

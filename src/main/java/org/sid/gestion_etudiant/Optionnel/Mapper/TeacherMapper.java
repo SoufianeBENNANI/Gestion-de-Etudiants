@@ -31,7 +31,6 @@ public class TeacherMapper {
         teacherDTO.setArchivedAt(teacher.getArchivedAt());
 
         if (teacher.getDepartement() != null) {
-            teacherDTO.setDepartementId(teacher.getDepartement().getId());
             teacherDTO.setDepartementNom(teacher.getDepartement().getNom());
         }
 
