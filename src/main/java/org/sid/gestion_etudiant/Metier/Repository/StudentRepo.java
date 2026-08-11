@@ -9,11 +9,7 @@ import java.util.Optional;
 
 public interface StudentRepo extends JpaRepository<Student, Long> {
 
-    List<Student> findByNomContainsIgnoreCase(String nom);
-
-    List<Student> findByNomContainsIgnoreCaseAndArchivedFalse(
-            String nom
-    );
+    List<Student> findByNomContainsIgnoreCaseAndArchivedFalse(String nom);
 
     List<Student> findByArchivedFalse();
 
@@ -31,6 +27,8 @@ public interface StudentRepo extends JpaRepository<Student, Long> {
     Optional<Student> findByNomIgnoreCase(String nom);
 
     Optional<Student> findByKeycloakId(String keycloakId);
+
+    Optional<Student> findByEmailIgnoreCase(String email);
 
     boolean existsByEmailIgnoreCase(String email);
 }

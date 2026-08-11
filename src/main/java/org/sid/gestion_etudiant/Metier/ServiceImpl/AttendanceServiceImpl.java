@@ -23,6 +23,47 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRepo attendanceRepo;
     private final StudentRepo studentRepo;
 
+    @Override
+    public List<AttendanceDTO> getMyAttendances(
+            String keycloakId,
+            String email
+    ) {
+        Student student = null;
+
+        // 1. Recherche par l'identifiant Keycloak
+        if (keycloakId != null && !keycloakId.isBlank()) {
+            student = studentRepo.findByKeycloakId(keycloakId)
+                    .orElse(null);
+        }
+
+        // 2. Si l'étudiant existant n'a pas encore de keycloakId,
+        // recherche par son email
+        if (student == null && email != null && !email.isBlank()) {
+            student = studentRepo.findByEmailIgnoreCase(email)
+                    .orElse(null);
+        }
+
+        if (student == null) {
+            throw new RuntimeException(
+                    "Aucun étudiant trouvé pour le compte connecté"
+            );
+        }
+
+        if (student.isArchived()) {
+            throw new RuntimeException(
+                    "Le compte de cet étudiant est archivé"
+            );
+        }
+
+        return attendanceRepo
+                .findByStudentIdAndArchivedFalseOrderByDateDesc(
+                        student.getId()
+                )
+                .stream()
+                .map(AttendanceMapper::toDto)
+                .toList();
+    }
+
     @Transactional
     @Override
     public AttendanceDTO addAttendance(AttendanceDTO attendanceDTO) {

@@ -37,6 +37,25 @@ public class PayementServiceImpl implements PayementService {
     private final StudentRepo studentRepo;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<PayementDTO> getMyPayements(
+            String keycloakId,
+            String email
+    ) {
+        if ((keycloakId == null || keycloakId.isBlank())
+                && (email == null || email.isBlank())) {
+            throw new IllegalArgumentException(
+                    "Impossible d'identifier l'étudiant authentifié."
+            );
+        }
+
+        return payementRepo.findMyPayements(keycloakId, email)
+                .stream()
+                .map(PayementMapper::toDto)
+                .toList();
+    }
+
+    @Override
     public PayementDTO addPayement(PayementDTO payementDTO) {
         Student student = studentRepo.findById(payementDTO.getStudentId())
                 .orElseThrow(() -> new StudentNotFoundException("Student not found"));

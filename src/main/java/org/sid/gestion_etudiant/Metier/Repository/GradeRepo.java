@@ -14,10 +14,27 @@ public interface GradeRepo extends JpaRepository<Grade, Long> {
 
     List<Grade> findByArchivedTrue();
 
-    List<Grade> findByArchivedTrueAndArchivedAtBefore(LocalDateTime date);
+    List<Grade> findByArchivedTrueAndArchivedAtBefore( LocalDateTime date );
 
-    @Query("SELECT AVG(g.note) FROM Grade g WHERE g.student.id = :studentId AND g.archived = false")
-    Double calculateAverageByStudentId(@Param("studentId") Long studentId);
+    @Query("""
+            SELECT g
+            FROM Grade g
+            WHERE g.archived = false
+              AND ( g.student.keycloakId = :keycloakId OR (:email IS NOT NULL AND LOWER(g.student.email) = LOWER(:email)))
+            """)
 
+    List<Grade> findMyGrades(
+            @Param("keycloakId") String keycloakId,
+            @Param("email") String email
+    );
 
+    @Query("""
+            SELECT AVG(g.note)
+            FROM Grade g
+            WHERE g.student.id = :studentId
+              AND g.archived = false
+            """)
+    Double calculateAverageByStudentId(
+            @Param("studentId") Long studentId
+    );
 }

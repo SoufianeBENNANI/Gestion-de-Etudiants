@@ -28,6 +28,30 @@ public class GradeServiceImpl implements GradeService {
     private final CoursesRepo coursesRepo;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<GradeDTO> getMyGrades(
+            String keycloakId,
+            String email
+    ) {
+        if (
+                (keycloakId == null || keycloakId.isBlank())
+                        && (email == null || email.isBlank())
+        ) {
+            throw new IllegalArgumentException(
+                    "Impossible d'identifier l'étudiant authentifié."
+            );
+        }
+
+        return gradeRepo.findMyGrades(
+                        keycloakId,
+                        email
+                )
+                .stream()
+                .map(GradeMapper::toDto)
+                .toList();
+    }
+
+    @Override
     public GradeDTO addGrade(GradeDTO gradeDTO) {
         Student student = resolveStudent(gradeDTO);
         Courses course = resolveCourse(gradeDTO);

@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +27,17 @@ public class PayementController {
 
     private final PayementService payementService;
     private final KafkaProducerService kafkaProducerService;
+
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/my")
+    public List<PayementDTO> getMyPayements(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return payementService.getMyPayements(
+                jwt.getSubject(),
+                jwt.getClaimAsString("email")
+        );
+    }
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/Ajouter")
@@ -53,7 +65,7 @@ public class PayementController {
         return savedPayement;
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','STUDENT','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/AllPayement")
     public List<PayementDTO> getAll() {
         return payementService.getAllPayements();
@@ -65,7 +77,7 @@ public class PayementController {
         return payementService.getArchivedPayements();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','STUDENT','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @GetMapping("/Recherche/{id}")
     public PayementDTO getById(
             @PathVariable Long id

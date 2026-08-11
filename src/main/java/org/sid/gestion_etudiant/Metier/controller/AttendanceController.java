@@ -12,6 +12,7 @@ import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -334,5 +335,24 @@ public class AttendanceController {
         return authentication != null
                 ? authentication.getName()
                 : "system";
+    }
+
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/my")
+    public List<AttendanceDTO> getMyAttendances(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String keycloakId = jwt.getSubject();
+        String email = jwt.getClaimAsString("email");
+        String username = jwt.getClaimAsString("preferred_username");
+
+        System.out.println("JWT sub      = " + keycloakId);
+        System.out.println("JWT email    = " + email);
+        System.out.println("JWT username = " + username);
+
+        return attendanceService.getMyAttendances(
+                keycloakId,
+                email
+        );
     }
 }

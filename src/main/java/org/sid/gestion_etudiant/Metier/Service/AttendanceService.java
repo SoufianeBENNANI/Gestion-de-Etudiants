@@ -21,4 +21,6 @@ public interface AttendanceService {
     AttendanceDTO restoreAttendance(Long id);
 
     void deleteOldArchivedAttendances();
+
+    List<AttendanceDTO> getMyAttendances(String keycloakId, String email);
 }

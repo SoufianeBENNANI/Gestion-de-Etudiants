@@ -1,7 +1,6 @@
 package org.sid.gestion_etudiant.Metier.Repository;
 
 import org.sid.gestion_etudiant.Metier.Entity.Attendance;
-import org.sid.gestion_etudiant.Metier.enums.AttendanceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,20 +9,40 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface AttendanceRepo extends JpaRepository<Attendance, Long> {
+public interface AttendanceRepo
+        extends JpaRepository<Attendance, Long> {
 
     List<Attendance> findByArchivedFalse();
 
     List<Attendance> findByArchivedTrue();
 
-    List<Attendance> findByArchivedTrueAndArchivedAtBefore(LocalDateTime limitDate);
+    List<Attendance> findByArchivedTrueAndArchivedAtBefore(
+            LocalDateTime limitDate
+    );
 
-    boolean existsByStudentIdAndDateAndArchivedFalse(Long studentId, LocalDate date);
+    boolean existsByStudentIdAndDateAndArchivedFalse(
+            Long studentId,
+            LocalDate date
+    );
 
-    boolean existsByStudentIdAndDateAndArchivedTrue(Long studentId, LocalDate date);
+    List<Attendance> findByStudentIdAndDate(
+            Long studentId,
+            LocalDate date
+    );
 
-    List<Attendance> findByStudentIdAndDate(Long studentId, LocalDate date);
+    // Présences actives de l’étudiant connecté
+    List<Attendance> findByStudentIdAndArchivedFalseOrderByDateDesc(
+            Long studentId
+    );
 
-    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.student.id = :studentId AND a.status = 'ABSENT' AND a.archived = false")
-    Long countAbsencesByStudentId(@Param("studentId") Long studentId);
+    @Query("""
+        SELECT COUNT(a)
+        FROM Attendance a
+        WHERE a.student.id = :studentId
+          AND a.status = 'ABSENT'
+          AND a.archived = false
+    """)
+    Long countAbsencesByStudentId(
+            @Param("studentId") Long studentId
+    );
 }

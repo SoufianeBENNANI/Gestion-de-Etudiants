@@ -10,6 +10,8 @@ public interface PayementService {
 
     List<PayementDTO> getAllPayements();
 
+    List<PayementDTO> getMyPayements(String keycloakId, String email);
+
     List<PayementDTO> getArchivedPayements();
 
     PayementDTO getPayementById(Long id);

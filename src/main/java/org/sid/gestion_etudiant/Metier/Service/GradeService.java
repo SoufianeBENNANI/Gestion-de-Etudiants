@@ -10,11 +10,13 @@ public interface GradeService {
 
     List<GradeDTO> getAllGrade();
 
+    List<GradeDTO> getMyGrades( String keycloakId, String email);
+
     List<GradeDTO> getArchivedGrades();
 
     GradeDTO getGradeById(Long id);
 
-    GradeDTO updateGrade(Long id, GradeDTO gradeDTO);
+    GradeDTO updateGrade( Long id, GradeDTO gradeDTO);
 
     String deleteGrade(Long id);
 

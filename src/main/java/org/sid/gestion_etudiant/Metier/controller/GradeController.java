@@ -12,6 +12,7 @@ import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,20 @@ public class GradeController {
 
     private final GradeService gradeService;
     private final KafkaProducerService kafkaProducerService;
+
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/my")
+    public List<GradeDTO> getMyGrades(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String keycloakId = jwt.getSubject();
+        String email = jwt.getClaimAsString("email");
+
+        return gradeService.getMyGrades(
+                keycloakId,
+                email
+        );
+    }
 
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @PostMapping("/Ajouter")
@@ -51,7 +66,7 @@ public class GradeController {
         return savedGrade;
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @GetMapping("/AllGrades")
     public List<GradeDTO> getAll() {
         return gradeService.getAllGrade();
@@ -63,7 +78,7 @@ public class GradeController {
         return gradeService.getArchivedGrades();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','TEACHER','STUDENT')")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     @GetMapping("/Recherche/{id}")
     public GradeDTO getById(
             @PathVariable Long id
