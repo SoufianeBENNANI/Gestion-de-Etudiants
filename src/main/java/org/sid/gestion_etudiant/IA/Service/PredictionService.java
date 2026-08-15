@@ -12,4 +12,6 @@ public interface PredictionService {
     List<StudentIAPrediction> getByStudentId(Long studentId);
 
     List<StudentPerformanceDTO> getPerformance();
+
+    StudentPerformanceDTO getMyPerformance(String keycloakId, String email);
 }

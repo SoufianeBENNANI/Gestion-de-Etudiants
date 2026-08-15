@@ -56,6 +56,28 @@ public class PredictionServiceImpl implements PredictionService {
     }
 
     @Override
+    public StudentPerformanceDTO getMyPerformance(
+            String keycloakId,
+            String email
+    ) {
+
+        Student student = studentRepo.findByEmailIgnoreCase(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Étudiant introuvable")
+                );
+
+        Optional<StudentIAPrediction> prediction =
+                predictionRepo.findTopByStudentIdOrderByDateDesc(
+                        student.getId()
+                );
+
+        return buildStudentPerformanceDTO(
+                student,
+                prediction.orElse(null)
+        );
+    }
+
+    @Override
     public List<StudentIAPrediction> getByStudentId(Long studentId) {
         return predictionRepo.findByStudentId(studentId);
     }

@@ -13,14 +13,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * @author Soufiane
- **/
 @Service
 @AllArgsConstructor
 public class DepartementServiceImpl implements DepartementService {
 
     private final DepartementRepo departementRepo;
+
 
     @Override
     public DepartementDTO addDepartment(DepartementDTO dto) {

@@ -8,9 +8,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * @author Soufiane
- **/
 @RestController
 @RequestMapping("/api/departments")
 @AllArgsConstructor
@@ -45,6 +42,7 @@ public class DepartementController {
     ) {
         return departementService.updateDepartment(id, dto);
     }
+
 
     @PreAuthorize("hasAnyRole('ADMIN')")
     @DeleteMapping("/Delete/{id}")
