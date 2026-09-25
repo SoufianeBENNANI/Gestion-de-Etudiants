@@ -1,34 +1,34 @@
 package org.sid.gestion_etudiant.Kafka.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.sid.gestion_etudiant.Kafka.Entity.AppEvent;
-import org.sid.gestion_etudiant.Notification.Enum.RecipientRole;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/api/notifications")
-@RequiredArgsConstructor
 public class NotificationSseController {
 
     private static final long SSE_TIMEOUT =
             30L * 60L * 1000L;
 
-    private final Map<RecipientRole, List<SseEmitter>>
-            emittersByRole =
-            new ConcurrentHashMap<>();
 
+    private final CopyOnWriteArrayList<SseEmitter>
+            adminEmitters =
+            new CopyOnWriteArrayList<>();
+
+
+    /*
+     * ADMIN connecté uniquement.
+     */
     @GetMapping(
             value = "/stream",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE
@@ -36,62 +36,84 @@ public class NotificationSseController {
     public SseEmitter stream(
             Authentication authentication
     ) {
-        RecipientRole connectedRole =
-                extractRole(authentication);
+
+        if (!isAdmin(authentication)) {
+
+            throw new AccessDeniedException(
+                    "Seul ADMIN peut accéder aux notifications SSE."
+            );
+        }
+
 
         SseEmitter emitter =
-                new SseEmitter(SSE_TIMEOUT);
+                new SseEmitter(
+                        SSE_TIMEOUT
+                );
 
-        emittersByRole
-                .computeIfAbsent(
-                        connectedRole,
-                        role -> new CopyOnWriteArrayList<>()
-                )
-                .add(emitter);
+
+        adminEmitters.add(
+                emitter
+        );
+
 
         emitter.onCompletion(
-                () -> removeEmitter(
-                        connectedRole,
-                        emitter
-                )
+                () ->
+                        adminEmitters.remove(
+                                emitter
+                        )
         );
 
-        emitter.onTimeout(() -> {
-            removeEmitter(
-                    connectedRole,
-                    emitter
-            );
 
-            emitter.complete();
-        });
+        emitter.onTimeout(
+                () -> {
 
-        emitter.onError(error ->
-                removeEmitter(
-                        connectedRole,
-                        emitter
-                )
+                    adminEmitters.remove(
+                            emitter
+                    );
+
+                    emitter.complete();
+                }
         );
+
+
+        emitter.onError(
+                error ->
+                        adminEmitters.remove(
+                                emitter
+                        )
+        );
+
 
         try {
+
             emitter.send(
                     SseEmitter
                             .event()
-                            .name("connected")
+                            .name(
+                                    "connected"
+                            )
                             .data(
                                     Map.of(
-                                            "connected", true,
-                                            "role", connectedRole.name()
+                                            "connected",
+                                            true,
+
+                                            "role",
+                                            "ADMIN"
                                     )
                             )
             );
 
+
             System.out.println(
-                    "SSE connecté pour le rôle : "
-                            + connectedRole
+                    "ADMIN connecté au SSE."
             );
-        } catch (IOException exception) {
-            removeEmitter(
-                    connectedRole,
+
+
+        } catch (
+                IOException exception
+        ) {
+
+            adminEmitters.remove(
                     emitter
             );
 
@@ -100,57 +122,53 @@ public class NotificationSseController {
             );
         }
 
+
         return emitter;
     }
 
+
+    /*
+     * Appelé par KafkaConsumerService.
+     */
     public void sendNotification(
             AppEvent event
     ) {
-        if (
-                event == null ||
-                        event.getRecipientRole() == null
-        ) {
-            System.out.println(
-                    "Événement SSE ignoré : recipientRole absent"
-            );
 
+        if (event == null) {
             return;
         }
 
-        RecipientRole recipientRole =
-                event.getRecipientRole();
-
-        List<SseEmitter> roleEmitters =
-                emittersByRole.getOrDefault(
-                        recipientRole,
-                        List.of()
-                );
 
         System.out.println(
-                "Envoi SSE vers "
-                        + recipientRole
-                        + " - Connexions actives : "
-                        + roleEmitters.size()
+                "Nombre ADMIN SSE connectés : "
+                        + adminEmitters.size()
         );
 
-        for (SseEmitter emitter : roleEmitters) {
+
+        for (
+                SseEmitter emitter :
+                adminEmitters
+        ) {
+
             try {
+
                 emitter.send(
                         SseEmitter
                                 .event()
-                                .name("notification")
-                                .data(event)
+                                .name(
+                                        "notification"
+                                )
+                                .data(
+                                        event
+                                )
                 );
 
-                System.out.println(
-                        "Notification SSE envoyée vers "
-                                + recipientRole
-                                + " : "
-                                + event.getMessage()
-                );
-            } catch (IOException exception) {
-                removeEmitter(
-                        recipientRole,
+
+            } catch (
+                    IOException exception
+            ) {
+
+                adminEmitters.remove(
                         emitter
                 );
 
@@ -161,56 +179,26 @@ public class NotificationSseController {
         }
     }
 
-    private void removeEmitter(
-            RecipientRole role,
-            SseEmitter emitter
-    ) {
-        List<SseEmitter> emitters =
-                emittersByRole.get(role);
 
-        if (emitters == null) {
-            return;
-        }
-
-        emitters.remove(emitter);
-
-        if (emitters.isEmpty()) {
-            emittersByRole.remove(role);
-        }
-    }
-
-    private RecipientRole extractRole(
+    private boolean isAdmin(
             Authentication authentication
     ) {
-        for (
-                GrantedAuthority authority :
-                authentication.getAuthorities()
-        ) {
-            String role =
-                    authority.getAuthority();
 
-            if (!role.startsWith("ROLE_")) {
-                continue;
-            }
-
-            String roleName =
-                    role.substring(
-                            "ROLE_".length()
-                    );
-
-            try {
-                return RecipientRole.valueOf(
-                        roleName.toUpperCase()
-                );
-            } catch (
-                    IllegalArgumentException ignored
-            ) {
-                // Continuer
-            }
+        if (authentication == null) {
+            return false;
         }
 
-        throw new IllegalStateException(
-                "Aucun rôle valide trouvé pour la connexion SSE."
-        );
+
+        return authentication
+                .getAuthorities()
+                .stream()
+                .anyMatch(
+                        authority ->
+                                authority
+                                        .getAuthority()
+                                        .equalsIgnoreCase(
+                                                "ROLE_ADMIN"
+                                        )
+                );
     }
 }

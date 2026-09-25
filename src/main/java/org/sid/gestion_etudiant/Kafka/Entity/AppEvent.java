@@ -13,6 +13,8 @@ public class AppEvent {
     private EventEntity entity;
     private EventAction action;
     private Long entityId;
+
+    private String subject;
     private String message;
 
     private String recipientEmail;
@@ -21,5 +23,6 @@ public class AppEvent {
     private String senderEmail;
     private RecipientRole senderRole;
 
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt =
+            LocalDateTime.now();
 }
